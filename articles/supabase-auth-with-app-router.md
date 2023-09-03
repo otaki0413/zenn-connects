@@ -15,7 +15,7 @@ Next.js の **AppRouter** を使って、Supabase の認証機能を実装行こ
 
 ## Auth Helpers（認証ヘルパー）とは？
 
-**Auth Helpers**とは、 Supabase の認証機能を操作するための便利な関数やユーティリティをまとめたものです。これを使うことで比較的簡単に認証機能を実装できます。
+**Auth Helpers**とは、 Supabase の認証機能を操作するための便利な関数やユーティリティをまとめたものです。これを使うことで比較的簡単に認証機能を実装することができます。
 
 以下 **AuthHelpers** の例です。
 
@@ -58,6 +58,15 @@ npm i @supabase/auth-helpers-nextjs @supabase/supabase-js
 ```
 
 https://github.com/supabase/auth-helpers
+
+### 環境変数の設定
+
+Supabase プロジェクトに関する、環境変数を設定します。
+
+```ts:.env.local
+NEXT_PUBLIC_SUPABASE_URL=<プロジェクトURL>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<プロジェクトAPIの非公開キー>
+```
 
 > The Next.js Auth Helpers package configures Supabase Auth to store the user's session in a cookie, rather than localStorage. This makes it available across the client and server of the App Router - Client Components, Server Components, Server Actions, Route Handlers and Middleware. The session is automatically sent along with any requests to Supabase.
 
