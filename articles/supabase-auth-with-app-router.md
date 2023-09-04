@@ -1,5 +1,5 @@
 ---
-title: "【AppRouter】Next.jsとSupabaseによる認証機能の実装"
+title: "【AppRouter】Next.js × Supabase 認証機能の実装"
 emoji: "⚡"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["supabase", "nextjs"]
@@ -8,9 +8,9 @@ published: false
 
 ## はじめに
 
-Next.js の **AppRouter** を使って、Supabase の認証機能を実装行こうと思います。
-対象者はこれから AppRouter と Supabase を連携させて何かアプリケーションを作ってみたい方にとって参考になるかもしれません。最後まで読んで頂けると喜びます。
-また、本記事は主に次のサイトに書かれている内容を元に作成しております。
+Next.js の **AppRouter** と Supabase の **Auth Helpers** による認証機能について簡単にまとめます。
+対象者はこれから AppRouter と Supabase を連携させて何かアプリケーションを作ってみたい方にとって参考になるかもしれません。
+また、本記事は主にドキュメント記載の内容を元に作成しております。
 (https://supabase.com/docs/guides/auth/auth-helpers/nextjs)
 
 ## Auth Helpers（認証ヘルパー）とは？
@@ -24,7 +24,7 @@ Next.js の **AppRouter** を使って、Supabase の認証機能を実装行こ
 - **signOut**（ユーザをログアウトさせるための関数）
 - **getSession**（現在のユーザ情報を取得するための関数）
 
-補足ですが、公式ドキュメントによると、AuthHelpers は**ベータ版**のようです。
+補足ですが、現在 Auth Helpers は**ベータ版**のようです。
 
 > The Auth Helpers are in beta. They are usable in their current state, but it's likely that there will be breaking changes.
 
@@ -35,15 +35,13 @@ https://supabase.com/docs/guides/auth/auth-helpers
 https://supabase.com/docs/guides/auth/auth-helpers/nextjs-pages
 :::
 
-## Supabase Auth with the Next.js App Router
+## 環境構築
 
-次に AuthHelpers を **App Router**の環境 でどのように使えばよいのか見ていこうと思います。
+次に Auth Helpers を **App Router**の環境 でどのように使えばよいのか見ていきます。
 
-下記コマンドで、Auth Helpers を用いた、cookie ベースの認証設定済みのテンプレートを生成できるようですが、今回はマニュアルでセットアップしていきます。
+ここに Auth Helpers が cookie ベースの認証であることを述べたほうがわかりやすいかも？
 
-```bash:terminal
-npx create-next-app -e with-supabase
-```
+`npx create-next-app -e with-supabase` コマンドを使えば、Auth Helpers による、cookie ベースの認証が設定されたテンプレを生成できますが、今回はマニュアルでセットアップします。
 
 ### Next.js のプロジェクト作成
 
@@ -70,7 +68,84 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<プロジェクトAPIの非公開キー>
 
 > The Next.js Auth Helpers package configures Supabase Auth to store the user's session in a cookie, rather than localStorage. This makes it available across the client and server of the App Router - Client Components, Server Components, Server Actions, Route Handlers and Middleware. The session is automatically sent along with any requests to Supabase.
 
+## 実装
+
+### Github OAuth でユーザー認証できるように
+
+今回はボタンによる認証処理を行いたいので、`use client`を記載する必要があります。
+つまり、クライアントコンポーネントになるので`createClientComponentClient`関数で Supabase クライアントを作成しましょう。
+
+```ts:AuthButton.tsx
+"use client";
+
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
+export const AuthButton = () => {
+  // Supabaseクライアント作成
+  const supabase = createClientComponentClient();
+
+  // サインアウト処理
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // サインイン処理
+  const handleSignIn = async () => {
+    // GitHub OAuthで認証する
+    await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: "http://localhost:3000/auth/callback",
+      },
+    });
+  };
+
+  return (
+    <>
+      <button onClick={handleSignIn}>Login</button>
+      <button onClick={handleSignOut}>Logout</button>
+    </>
+  );
+};
+```
+
+### Route Handlers の作成
+
+サインインに成功すると、auth/callback にリダイレクト処理が走るので、Router Handler で受け取ってあげる必要があります。
+
+```ts:app/auth/callback/route.ts
+
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+
+// Code Exchange用のルートハンドラ
+export async function GET(request: NextRequest) {
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
+
+  /**
+   * 認証CodeとユーザーSessionを交換
+   * そして今後Supabaseにリクエストする際のCookieとして設定
+   */
+  if (code) {
+    const supabase = createRouteHandlerClient({ cookies });
+    await supabase.auth.exchangeCodeForSession(code);
+  }
+
+  // サインイン後にリダイレクトするURLを指定
+  return NextResponse.redirect(requestUrl.origin);
+}
+```
+
+:::details Route Handlers
+
+https://nextjs.org/docs/app/building-your-application/routing/route-handlers#cookies
+:::
+
 ## おわりに
+
+最後まで読んでいただきありがとうございます。
 
 ## 参考サイト
 
