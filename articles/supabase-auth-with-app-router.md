@@ -65,7 +65,7 @@ https://supabase.com/docs/guides/auth/auth-helpers/nextjs
 
 (https://supabase.com/docs/guides/auth/auth-helpers/nextjs#creating-a-supabase-client)
 
-それでは、実際に簡単なプロジェクトを作成しながら、AppRouter と auth-helpers の使い方を見ていきましょう。
+それでは、実際に簡単なプロジェクトを作成しながら、auth-helpers の使い方を見ていきましょう。
 
 ## 環境構築
 
@@ -242,7 +242,7 @@ export default async function Home() {
 このルートで実行しているのは、**Code Exchange(コード交換)** です。
 
 まず、リクエスト URL からクエリパラメータ`code`を指定して、認証コードを取得します。
-認証コード が存在する場合は、`createRouteHandlerClient`関数でクライアントを作成し、
+認証コード が存在する場合に、`createRouteHandlerClient`関数でクライアントを作成し、
 `exchangeCodeForSession`で アプリ側と Supabase との間でセッションを確立しています。
 
 :::details exchangeCodeForSession
@@ -275,30 +275,30 @@ export async function GET(request: NextRequest) {
 
 https://nextjs.org/docs/app/building-your-application/routing/route-handlers#cookies
 
-### 4. ミドルウェアの設定
+### 4. ミドルウェアの実装
 
-ここまでの実装で 1 つ問題があるためそれを解決します。
+ここまでの実装で 1 つ問題があるためそれを解決しようと思います。
 
 #### 問題点
 
-**Cookie の有効期限が切れた場合、更新時に Cookie が削除されてログアウト状態になる**
+**サーバー上で Supabase クライアントを使用する場合、Cookie の有効期限が切れると、更新時に Cookie が削除されてログアウト状態になる**
 
-サーバーコンポーネントは、Cookie を読み取り可能だが、書き戻すことはできないようです。
+これはサーバーコンポーネントは、Cookie を読取可能だが、書き戻すことはできないためです。
 
 > Next.js Server Components allow you to read a cookie but not write back to it. Middleware on the other hand allow you to both read and write to cookies.
 
-`serverComponentClient.ts`の実装を見ても、サーバーコンポーネント側からだと`cookies`を設定・削除できない旨がコメントで記載されています。
+`serverComponentClient.ts`の実装を見ても、サーバーコンポーネント側からだと`cookies`を設定できない旨がコメントで記載されています。
 https://github.com/supabase/auth-helpers/blob/main/packages/nextjs/src/serverComponentClient.ts
 
 #### 解決策
 
 **[Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware) 関数を作成する**
 
-今回はミドルウェア関数で解決します。`middleware.ts`をプロジェクトのルート直下に配置することで、**ルートが読み込まれる直前に何かしらの処理を実行**することができます。
+今回はミドルウェア関数で解決しようと思います。`middleware.ts`をプロジェクトのルート直下に配置することで、**ルートが読み込まれる直前に何かしらの処理を実行**することができます。
 
-今回の場合だと、**サーバーコンポーネントが読み込まれて、Supabase からデータ取得する時点までにセッションを有効化**させておきます。
+今回の場合だと、**サーバーコンポーネントが読み込まれて、Supabase からデータ取得する時点までにセッションを有効化**させておきたいのです！
 
-[getSession](https://supabase.com/docs/reference/javascript/auth-getsession)関数を実行して、有効期限が切れたセッションを更新させます。
+そこで [getSession](https://supabase.com/docs/reference/javascript/auth-getsession) 関数を実行して、有効期限が切れたセッションを更新させます。
 
 ```ts:middleware.ts
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
@@ -316,7 +316,7 @@ export async function middleware(req: NextRequest) {
 }
 ```
 
-この middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネント(app/pages.tsx)の `cookies` 関数には新しいセッションを含む更新後の Cookie が含まれるので、Cookie の期限切れの問題を解決できます。
+この middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネント(app/page.tsx)の `cookies` 関数には新しいセッションを含む更新後の Cookie が含まれることが保証されるのです。
 
 ```ts: app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -324,6 +324,7 @@ import { cookies } from "next/headers";
 import { AuthButton } from "./_components/AuthButton";
 
 export default async function Home() {
+  // 更新後のsessionを含んだCookieがこの時点では入っている
   const supabase = createServerComponentClient({ cookies });
   const { data: posts } = await supabase.from("posts").select();
 
@@ -338,6 +339,88 @@ export default async function Home() {
 
 https://nextjs.org/docs/app/building-your-application/routing/middleware
 
+## 5. Session 有無に応じて UI を動的レンダリングする
+
+最後に、ログイン・ログアウト両方のボタンが表示されているので、Session に応じて切り替えられるようにします。
+
+前提ですが、App Router の環境では**クライアントコンポーネントの初回レンダリングは､サーバー上で実行**されます。これをサーバーサイドレンダリング(SSR)と呼びます。
+
+まず、**セッションを非同期で取得する用のサーバーコンポーネント**を作成します。
+非同期処理を実行する場合、関数の先頭に`async`をつけると**非同期サーバーコンポーネントとして機能する**ため、それを作成します。
+
+コンポーネント名はとりあえず、サーバーコンポーネントとして実行したいので `AuthButtonServer.tsx` という命名にしておきます。
+
+#### サーバーコンポーネント側
+
+- 非同期処理を使用するので、`async` を付ける
+- `getSession` でセッション情報をして、クライアントコンポーネントへ渡す。
+
+```diff ts:AuthButtonServer.tsx
++ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
++ import { cookies } from "next/headers";
++ import AuthButton from "./auth-button-client";
++
++ export default async function AuthButtonServer() {
++  const supabase = createServerComponentClient({ cookies });
++
++  const {
++   data: { session },
++  } = await supabase.auth.getSession();
++
++ return <AuthButton session={session} />;
+}
+```
+
+#### クライアントコンポーネント側
+
+- ログイン・ログアウトボタンどちらかを表示するコンポーネント
+- Props で `session` を受け取る
+- session の有無に応じて､ボタンを切り替える
+
+```diff tsx:AuthButton.tsx
+"use client";
+
+import { useRouter } from "next/navigation";
+import {
+  Session,
+  createClientComponentClient,
+} from "@supabase/auth-helpers-nextjs";
+
+export default function AuthButtonClient({
++  session,
++ }: {
++  session: Session | null;
+  }) {
+  const supabase = createClientComponentClient();
+  const router = useRouter();
+
+  // サインアウト処理
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.refresh();
+  };
+
+  // サインイン処理
+  const handleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: "http://localhost:3000/auth/callback",
+      },
+    });
+  };
+
++ return session ? (
++   // Sessionがあるかどうかで認証ボタンを切り替える
++   <button onClick={handleSignOut}>Logout</button>
++ ) : (
++   <button onClick={handleSignIn}>Login</button>
++ );
+ }
+```
+
+https://nextjs.org/docs/app/building-your-application/rendering
+
 ## おわりに
 
 最後まで読んでいただきありがとうございます。
@@ -346,3 +429,4 @@ Supabase は今非常に勢いのある
 ## 参考サイト
 
 https://supabase.com/docs/guides/auth/auth-helpers/nextjs
+https://egghead.io/courses/build-a-twitter-clone-with-the-next-js-app-router-and-supabase-19bebadb
