@@ -86,18 +86,63 @@ https://github.com/supabase/auth-helpers
 ### 環境変数の設定
 
 Supabase プロジェクトに関する、環境変数を`.env.local`に設定します。
-Supabase プロジェクトの立ち上げ方については詳しくは述べませんが、下記記事が参考になると思います。
 
 ```ts:.env.local
 NEXT_PUBLIC_SUPABASE_URL=<プロジェクトURL>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<プロジェクトAPIの非公開キー>
 ```
 
+ダッシュボードより[Project Setting] > [API]で上記の環境変数を確認することが出来るので、
+それらをコピぺしましょう。
+![](/images/supabase-api-setting.png)
+
+### Supabase 側の準備
+
+SQL Editor で下記のクエリを実行し、テーブルとデータを作成します。
+
+#### posts テーブルの作成
+
+```sql
+create table if not exists posts (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  title text not null
+);
+```
+
+#### RLS ポリシー の設定
+
+- [RLS](https://supabase.com/docs/guides/auth/row-level-security)の有効化
+- select によるデータ取得を行えるようにポリシーを作成する
+
+```sql
+alter table posts
+  enable row level security;
+
+create policy "anyone can select posts" ON "public"."posts"
+as permissive for select
+to public
+using (true);
+```
+
+#### データを posts テーブルに挿入
+
+```sql
+insert into
+  posts(title)
+values
+  ('first post'),
+  ('second post'),
+  ('third post')
+```
+
+ここまでで下準備は整ったので、実装の方に移っていきましょう!
+
 ## 実装
 
 ### 1. サーバーコンポーネント上でデータ取得する
 
-まず、Supabase の〇〇テーブルからデータを取得して表示します。
+まず、Supabase の`posts`テーブルからデータを取得して表示します。
 
 サーバーコンポーネント側でデータ取得を行うので、 `createServerComponentClient` 関数を用いてクライアントを作成しています。
 
@@ -168,10 +213,10 @@ export const AuthButton = () => {
 
 この`AuthButton`コンポーネントを `app/page.tsx`でインポートします。
 
-```ts:app/page.tsx
+```diff ts:app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { AuthButton } from "./_components/auth-button";
++ import { AuthButton } from "./_components/auth-button";
 
 export default async function Home() {
   const supabase = createServerComponentClient({ cookies });
@@ -179,7 +224,7 @@ export default async function Home() {
 
   return (
     <>
-      <AuthButton />
++     <AuthButton />
       <pre>{JSON.stringify(todos, null, 2)}</pre>;
     </>
   );
