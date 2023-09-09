@@ -17,7 +17,7 @@ https://supabase.com/docs/guides/auth/auth-helpers/nextjs
 **Auth Helpers**とは、 Supabase の認証機能を操作するための**便利な関数やユーティリティをまとめたもの**です。これを使うことで比較的簡単に認証機能を実装することができます。
 
 Next.js の他に SvelteKit, Remix, Nuxt といった JS フレームワークをサポートしているようです。
-(https://github.com/supabase/auth-helpers)
+https://github.com/supabase/auth-helpers
 
 以下 Auth Helpers の例です。
 
@@ -46,7 +46,7 @@ https://supabase.com/docs/guides/auth/auth-helpers/nextjs
 
 ### Supabase クライアント を作成するには？
 
-実際にアプリ側から Supabase に接続するにはどうすればよいのか見ていきます。
+実際にアプリ側から Supabase に接続するにはどうすればよいのでしょうか？
 **Next.js Auth Helpers** は、Supabase のクライアントにアクセスする 5 つの関数を提供しています。
 
 1. `createClientComponentClient`
@@ -61,13 +61,16 @@ https://supabase.com/docs/guides/auth/auth-helpers/nextjs
    - ミドルウェアで使用するメソッド
 
 `create〇〇〇Client` の形式は共通で、アプリ内で呼び出したい場所に応じて`〇〇〇`の部分を変更する書き方となっています。
-まさに App Router の環境に適応した命名になっているため、分かりやすいですね！
+まさに **App Router の環境に適応した命名**になっているため、分かりやすいですね！
 
 (https://supabase.com/docs/guides/auth/auth-helpers/nextjs#creating-a-supabase-client)
+
+それでは、実際に簡単なプロジェクトを作成しながら、AppRouter と auth-helpers の使い方を見ていきましょう。
 
 ## 環境構築
 
 `npx create-next-app -e with-supabase` コマンドを使えば、Auth Helpers による、cookie ベースの認証が設定されたテンプレを生成できますが、今回はマニュアルでセットアップします。
+ただし、Supabase のプロジェクトは作成できている前提です。
 
 ### Next.js のプロジェクト作成
 
@@ -96,9 +99,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<プロジェクトAPIの非公開キー>
 それらをコピぺしましょう。
 ![](/images/supabase-api-setting.png)
 
-### Supabase 側の準備
+### テーブル作成とデータ準備
 
-SQL Editor で下記のクエリを実行し、テーブルとデータを作成します。
+Supabase の **SQL Editor** で下記のクエリを実行し、テーブルとデータを作成します。
 
 #### posts テーブルの作成
 
@@ -136,15 +139,15 @@ values
   ('third post')
 ```
 
-ここまでで下準備は整ったので、実装の方に移っていきましょう!
+ここまでで下準備は整ったのでいよいよ **auth-helpers** での実装の方に移っていきましょう。
 
 ## 実装
 
 ### 1. サーバーコンポーネント上でデータ取得する
 
-まず、Supabase の`posts`テーブルからデータを取得して表示します。
+まず、Supabase の`posts`テーブルからデータを取得し`app/pages.tsx` で表示します。
 
-サーバーコンポーネント側でデータ取得を行うので、 `createServerComponentClient` 関数を用いてクライアントを作成しています。
+今回はサーバーコンポーネント側でデータ取得を行うので`createServerComponentClient` 関数を用いてクライアントを作成します。
 
 ```ts:app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -153,10 +156,10 @@ import { cookies } from "next/headers";
 export default async function Home() {
   // クライアント作成
   const supabase = createServerComponentClient({ cookies });
-  // Supabaseよりデータ取得
-  const { data: tweets } = await supabase.from("tweets").select();
-  // 取得データを整形して表示
-  return <pre>{JSON.stringify(tweets, null, 2)}</pre>;
+  // postsテーブルからデータ取得
+  const { data: posts } = await supabase.from("posts").select();
+
+  return <pre>{JSON.stringify(posts, null, 2)}</pre>;
 }
 ```
 
@@ -166,17 +169,17 @@ export default async function Home() {
 
 ### 2. Github OAuth でユーザー認証できるようにする
 
-まず、Github 認証をできるようにしましょう。
+今回は、Github によるソーシャルログインを実装します。
 ::: details Github 認証の設定
 実際に Github 認証 を行うためには アプリケーションの認証情報を Github と Supabase に追加する必要があります。公式に手順が記載されていますので参考にして下さい。
 (https://supabase.com/docs/guides/auth/social-login/auth-github)
 :::
-ここでは`AuthButton.tsx`を作成して、ログインボタンとログアウトボタンを実装します。
+ここでは`AuthButton.tsx`を作成して、ログインボタンとログアウトボタンを作っています。
 
 今回はボタンによる認証処理を行いたいので、`use client`を冒頭に記載します。
 つまり、クライアントコンポーネントになるので`createClientComponentClient`関数を用いて Supabase クライアントを作成します。
 
-サインイン処理については、[`SignInWithOAuth`](https://supabase.com/docs/reference/javascript/auth-signinwithoauth) 関数で Github 認証を実装しており、ユーザーがサインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトする設定をかけています。
+サインイン処理については、[`SignInWithOAuth`](https://supabase.com/docs/reference/javascript/auth-signinwithoauth) 関数で Github 認証を実装しており、ユーザーがサインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトする想定です。
 
 ```ts:AuthButton.tsx
 "use client";
@@ -211,7 +214,7 @@ export const AuthButton = () => {
 };
 ```
 
-この`AuthButton`コンポーネントを `app/page.tsx`でインポートします。
+作成した `AuthButton`コンポーネントを `app/page.tsx`でインポートします。
 
 ```diff ts:app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -233,10 +236,19 @@ export default async function Home() {
 
 ### 3. Route Handlers の作成
 
-サインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトするので、Router Handler で受け取ってあげる必要があります。
+サインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトするので、Router Handler を作成する必要があります。
 
 今回は、app ディレクトリ配下に`auth/callback/route.ts`を作成します。
-Route Handlers
+このルートで実行しているのは、**Code Exchange(コード交換)** です。
+
+まず、リクエスト URL からクエリパラメータ`code`を指定して、認証コードを取得します。
+認証コード が存在する場合は、`createRouteHandlerClient`関数でクライアントを作成し、
+`exchangeCodeForSession`で アプリ側と Supabase との間でセッションを確立しています。
+
+:::details exchangeCodeForSession
+文字だけみると「認証コードをセッションに交換する」を指しますが、
+実際は「**認証コードを使用してセッションを確立する**」が正確です。
+:::
 
 ```ts:app/auth/callback/route.ts
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -248,10 +260,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 
-  /**
-   * 認証CodeとユーザーSessionを交換
-   * そして今後Supabaseにリクエストする際のCookieとして設定
-   */
+  // 認証コードを使用して、セッションを確立する
   if (code) {
     const supabase = createRouteHandlerClient({ cookies });
     await supabase.auth.exchangeCodeForSession(code);
@@ -262,29 +271,37 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-:::details Route Handlers
+ここまでの内容をまとめると、
+GitHub 認証を通じてセッションが確立され、ユーザの認証とアプリケーションと Supabase の間でセキュアに通信が行えるになりました。セッション情報には認証情報が管理されるため、今後 Supabase へアクセスする際にはセッション情報が使用されます。
 
 https://nextjs.org/docs/app/building-your-application/routing/route-handlers#cookies
-:::
 
 ### 4. ミドルウェアの設定
 
-現状、1 つ課題があるためそれを解決します。
-それは **サーバーコンポーネント側では、Cookie の設定・更新ができないため、もし Cookie の有効期限が切れた場合、画面を更新すると Cookie が削除されてログアウト状態となってしまう**ため、再度ログインする手間が発生します。
+ここまでの実装、1 つ問題があるためそれを解決します。
 
-この課題を解決するために **ミドルウェア関数** を作成する必要があります。
+**問題点**
+Cookie の有効期限が切れた場合、画面を更新すると Cookie が削除されてログアウト状態となってしまう
+
+`serverComponentClient.ts`の実装を見ても、サーバーコンポーネント側からだと`cookies`を設定できない旨がコメントで記載されています。ちなみに読み取りは可能です。
+https://github.com/supabase/auth-helpers/blob/main/packages/nextjs/src/serverComponentClient.ts
+
+この課題を解決するために [**Middleware**](https://nextjs.org/docs/app/building-your-application/routing/middleware) 関数を作成する必要があります。
 `middleware.ts`をプロジェクトのルート直下に配置することで、ルートが読み込まれる直前に何かしらの処理を実行することができます。
 
-今回の場合だと、サーバーコンポーネントが読込まれて、Supabase からデータ取得までの間にセッションを有効化させる処理をつくっています。
+今回の場合だと、**サーバーコンポーネントが読込まれて、Supabase からデータ取得するまでにセッションを有効化させる処理を実装します。**
+
+[**getSession**](https://supabase.com/docs/reference/javascript/auth-getsession)関数を実行すると、セッションに期限切れのアクセストークンがある場合、新しいセッションに更新してくれます。
 
 ```ts:middleware.ts
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// ルートが読み込まれる直前に実行される
+// ルートが読み込まれる直前に実行
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
+  // クライアント作成
   const supabase = createMiddlewareClient({ req, res });
   // 有効期限が切れたセッションを更新
   await supabase.auth.getSession();
@@ -292,7 +309,7 @@ export async function middleware(req: NextRequest) {
 }
 ```
 
-上記の middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネントの `Cookie` 関数には新しいセッションを含む更新後の Cookie が含まれるので、Cookie の期限切れの課題を解決できています。
+上記の middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネントの `cookies` 関数には新しいセッションを含む更新後の Cookie が含まれるので、Cookie の期限切れの課題を解決できます。
 
 ```ts: app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -300,7 +317,6 @@ import { cookies } from "next/headers";
 import { AuthButton } from "./_components/auth-button";
 
 export default async function Home() {
-  // ミドルウェアの実装により、cookiesが必ず存在する
   const supabase = createServerComponentClient({ cookies });
   const { data: todos } = await supabase.from("todos").select();
 
