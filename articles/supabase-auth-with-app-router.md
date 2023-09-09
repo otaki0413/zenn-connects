@@ -163,9 +163,8 @@ export default async function Home() {
 }
 ```
 
-下記のような見た目になれば大丈夫です！
-
-ここにスクショ
+下記のようにデータが取得できていれば OK です！
+![](/images/select-posts.png)
 
 ### 2. Github OAuth でユーザー認証できるようにする
 
@@ -179,7 +178,7 @@ export default async function Home() {
 今回はボタン押下時に認証処理を行いたいので、`use client`を冒頭に記載します。
 つまり、クライアントコンポーネントになるので`createClientComponentClient`関数を用いて Supabase クライアントを作成します。
 
-サインイン処理については、[SignInWithOAuth](https://supabase.com/docs/reference/javascript/auth-signinwithoauth) 関数で Github 認証を実装しており、ユーザーがサインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトする想定です。
+サインイン処理については、[SignInWithOAuth](https://supabase.com/docs/reference/javascript/auth-signinwithoauth) 関数で Github 認証を実装しており、ユーザーがサインインに成功すると、`http://localhost:3000/auth/callback`にリダイレクトする想定です。
 
 ```ts:AuthButton.tsx
 "use client";
@@ -243,7 +242,7 @@ export default async function Home() {
 
 まず、リクエスト URL からクエリパラメータ`code`を指定して、認証コードを取得します。
 認証コード が存在する場合に、`createRouteHandlerClient`関数でクライアントを作成し、
-`exchangeCodeForSession`で アプリ側と Supabase との間でセッションを確立しています。
+`exchangeCodeForSession`関数で アプリ側と Supabase との間でセッションを確立しています。
 
 :::details exchangeCodeForSession
 文字だけみると「認証コードをセッションに交換する」を指しますが、
@@ -260,7 +259,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 
-  // 認証コードを使用して、セッションを確立する
+  // 認証コードを使用して、Supabaseとのセッションを確立する
   if (code) {
     const supabase = createRouteHandlerClient({ cookies });
     await supabase.auth.exchangeCodeForSession(code);
@@ -283,7 +282,7 @@ https://nextjs.org/docs/app/building-your-application/routing/route-handlers#coo
 
 **サーバー上で Supabase クライアントを使用する場合、Cookie の有効期限が切れると、更新時に Cookie が削除されてログアウト状態になる**
 
-これはサーバーコンポーネントは、Cookie を読取可能だが、書き戻すことはできないためです。
+これはサーバーコンポーネントが、Cookie を読取可能だが、書き戻すことはできないためです。
 
 > Next.js Server Components allow you to read a cookie but not write back to it. Middleware on the other hand allow you to both read and write to cookies.
 
@@ -346,9 +345,7 @@ https://nextjs.org/docs/app/building-your-application/routing/middleware
 前提ですが、App Router の環境では**クライアントコンポーネントの初回レンダリングは､サーバー上で実行**されます。これをサーバーサイドレンダリング(SSR)と呼びます。
 
 まず、**セッションを非同期で取得する用のサーバーコンポーネント**を作成します。
-非同期処理を実行する場合、関数の先頭に`async`をつけると**非同期サーバーコンポーネントとして機能する**ため、それを作成します。
-
-コンポーネント名はとりあえず、サーバーコンポーネントとして実行したいので `AuthButtonServer.tsx` という命名にしておきます。
+非同期処理を実行する場合、関数の先頭に`async`をつけると**非同期サーバーコンポーネント**として機能します。コンポーネント名はとりあえず分かりやすく `AuthButtonServer.tsx` という命名にしておきます。
 
 #### サーバーコンポーネント側
 
