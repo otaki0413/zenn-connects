@@ -36,7 +36,7 @@ https://supabase.com/docs/guides/auth/auth-helpers
 
 次に Auth Helpers を **App Router**の環境 でどのように使えばよいのか見ていきます。
 
-ドキュメントによれば、Auth Helpers はユーザのセッションを**Cookie**に保持する仕組みになっていることから**Cookie ベースの認証機能**を提供していることが分かります。
+ドキュメントによれば、Auth Helpers は**セッションを localStorage ではなく Cookie に保持する仕組み**になっていることから**Cookie ベースの認証機能**を提供していることが分かります。
 
 また、 Next.js の AppRouter からは`Client Components`,`Server Components`, `Server Actions`, `Route Handlers`, `Middleware`などクライアントとサーバーの両方を意識した開発ができるようになっているため、このあたりも考慮した作りになってそうですね。
 
@@ -176,10 +176,10 @@ export default async function Home() {
 :::
 ここでは`AuthButton.tsx`を作成して、ログインボタンとログアウトボタンを作っています。
 
-今回はボタンによる認証処理を行いたいので、`use client`を冒頭に記載します。
+今回はボタン押下時に認証処理を行いたいので、`use client`を冒頭に記載します。
 つまり、クライアントコンポーネントになるので`createClientComponentClient`関数を用いて Supabase クライアントを作成します。
 
-サインイン処理については、[`SignInWithOAuth`](https://supabase.com/docs/reference/javascript/auth-signinwithoauth) 関数で Github 認証を実装しており、ユーザーがサインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトする想定です。
+サインイン処理については、[SignInWithOAuth](https://supabase.com/docs/reference/javascript/auth-signinwithoauth) 関数で Github 認証を実装しており、ユーザーがサインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトする想定です。
 
 ```ts:AuthButton.tsx
 "use client";
@@ -219,16 +219,16 @@ export const AuthButton = () => {
 ```diff ts:app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-+ import { AuthButton } from "./_components/auth-button";
++ import { AuthButton } from "./_components/AuthButton";
 
 export default async function Home() {
   const supabase = createServerComponentClient({ cookies });
-  const { data: todos } = await supabase.from("todos").select();
+  const { data: posts } = await supabase.from("posts").select();
 
   return (
     <>
 +     <AuthButton />
-      <pre>{JSON.stringify(todos, null, 2)}</pre>;
+      <pre>{JSON.stringify(posts, null, 2)}</pre>;
     </>
   );
 }
@@ -271,27 +271,34 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-ここまでの内容をまとめると、
-GitHub 認証を通じてセッションが確立され、ユーザの認証とアプリケーションと Supabase の間でセキュアに通信が行えるになりました。セッション情報には認証情報が管理されるため、今後 Supabase へアクセスする際にはセッション情報が使用されます。
+ここまでの内容をまとめると、GitHub 認証を通じてセッションが確立され、ユーザの認証とアプリケーションと Supabase の間でセキュアに通信が行えるになりました。セッション情報には認証情報が管理されるため、今後 Supabase へアクセスする際にはセッション情報が使用されます。
 
 https://nextjs.org/docs/app/building-your-application/routing/route-handlers#cookies
 
 ### 4. ミドルウェアの設定
 
-ここまでの実装、1 つ問題があるためそれを解決します。
+ここまでの実装で 1 つ問題があるためそれを解決します。
 
-**問題点**
-Cookie の有効期限が切れた場合、画面を更新すると Cookie が削除されてログアウト状態となってしまう
+#### 問題点
 
-`serverComponentClient.ts`の実装を見ても、サーバーコンポーネント側からだと`cookies`を設定できない旨がコメントで記載されています。ちなみに読み取りは可能です。
+**Cookie の有効期限が切れた場合、更新時に Cookie が削除されてログアウト状態になる**
+
+サーバーコンポーネントは、Cookie を読み取り可能だが、書き戻すことはできないようです。
+
+> Next.js Server Components allow you to read a cookie but not write back to it. Middleware on the other hand allow you to both read and write to cookies.
+
+`serverComponentClient.ts`の実装を見ても、サーバーコンポーネント側からだと`cookies`を設定・削除できない旨がコメントで記載されています。
 https://github.com/supabase/auth-helpers/blob/main/packages/nextjs/src/serverComponentClient.ts
 
-この課題を解決するために [**Middleware**](https://nextjs.org/docs/app/building-your-application/routing/middleware) 関数を作成する必要があります。
-`middleware.ts`をプロジェクトのルート直下に配置することで、ルートが読み込まれる直前に何かしらの処理を実行することができます。
+#### 解決策
 
-今回の場合だと、**サーバーコンポーネントが読込まれて、Supabase からデータ取得するまでにセッションを有効化させる処理を実装します。**
+**[Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware) 関数を作成する**
 
-[**getSession**](https://supabase.com/docs/reference/javascript/auth-getsession)関数を実行すると、セッションに期限切れのアクセストークンがある場合、新しいセッションに更新してくれます。
+今回はミドルウェア関数で解決します。`middleware.ts`をプロジェクトのルート直下に配置することで、**ルートが読み込まれる直前に何かしらの処理を実行**することができます。
+
+今回の場合だと、**サーバーコンポーネントが読み込まれて、Supabase からデータ取得する時点までにセッションを有効化**させておきます。
+
+[getSession](https://supabase.com/docs/reference/javascript/auth-getsession)関数を実行して、有効期限が切れたセッションを更新させます。
 
 ```ts:middleware.ts
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
@@ -309,21 +316,21 @@ export async function middleware(req: NextRequest) {
 }
 ```
 
-上記の middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネントの `cookies` 関数には新しいセッションを含む更新後の Cookie が含まれるので、Cookie の期限切れの課題を解決できます。
+この middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネント(app/pages.tsx)の `cookies` 関数には新しいセッションを含む更新後の Cookie が含まれるので、Cookie の期限切れの問題を解決できます。
 
 ```ts: app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { AuthButton } from "./_components/auth-button";
+import { AuthButton } from "./_components/AuthButton";
 
 export default async function Home() {
   const supabase = createServerComponentClient({ cookies });
-  const { data: todos } = await supabase.from("todos").select();
+  const { data: posts } = await supabase.from("posts").select();
 
   return (
     <>
       <AuthButton />
-      <pre>{JSON.stringify(todos, null, 2)}</pre>;
+      <pre>{JSON.stringify(posts, null, 2)}</pre>;
     </>
   );
 }
@@ -334,6 +341,7 @@ https://nextjs.org/docs/app/building-your-application/routing/middleware
 ## おわりに
 
 最後まで読んでいただきありがとうございます。
+Supabase は今非常に勢いのある
 
 ## 参考サイト
 
