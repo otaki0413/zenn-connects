@@ -1,5 +1,5 @@
 ---
-title: "【AppRouter】Next.js × Supabase 認証機能について"
+title: "【AppRouter】Supabase のAuth Helpersを触ってみる"
 emoji: "⚡"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["supabase", "nextjs"]
@@ -8,9 +8,11 @@ published: false
 
 ## はじめに
 
-Next.js の **AppRouter** と Supabase の **Auth Helpers** による認証機能について気になったのでまとめます。対象者はこれから AppRouter と Supabase を連携させて何か認証機能を搭載したアプリケーションを作ってみたい方です。
-また、本記事は主に下記公式ドキュメントの内容を元に作成しております。
+Next.js の **AppRouter** と Supabase の **Auth Helpers** による認証機能の実装について気になったのでまとめようと思います。対象者はこれから AppRouter と Supabase を連携させて何か認証機能を搭載したアプリケーションを作ってみたい方です。
+
+また、本記事は主に下記サイトの内容を参考に作成しております。
 https://supabase.com/docs/guides/auth/auth-helpers/nextjs
+https://egghead.io/courses/build-a-twitter-clone-with-the-next-js-app-router-and-supabase-19bebadb
 
 ## Auth Helpers（認証ヘルパー）とは？
 
@@ -38,7 +40,7 @@ https://supabase.com/docs/guides/auth/auth-helpers
 
 ドキュメントによれば、Auth Helpers は**セッションを localStorage ではなく Cookie に保持する仕組み**になっていることから**Cookie ベースの認証機能**を提供していることが分かります。
 
-また、 Next.js の AppRouter からは`Client Components`,`Server Components`, `Server Actions`, `Route Handlers`, `Middleware`などクライアントとサーバーの両方を意識した開発ができるようになっているため、このあたりも考慮した作りになってそうですね。
+また Next.js の AppRouter からは`Client Components`,`Server Components`, `Server Actions`, `Route Handlers`, `Middleware`などクライアントとサーバーの両方を意識した開発ができるようになっているため、このあたりも考慮した作りになっていそうですね。
 
 > The Next.js Auth Helpers package configures Supabase Auth to store the user's session in a cookie, rather than localStorage. This makes it available across the client and server of the App Router - Client Components, Server Components, Server Actions, Route Handlers and Middleware. The session is automatically sent along with any requests to Supabase.
 
@@ -61,7 +63,7 @@ https://supabase.com/docs/guides/auth/auth-helpers/nextjs
    - ミドルウェアで使用するメソッド
 
 `create〇〇〇Client` の形式は共通で、アプリ内で呼び出したい場所に応じて`〇〇〇`の部分を変更する書き方となっています。
-まさに **App Router の環境に適応した命名**になっているため、分かりやすいですね！
+まさに App Router の環境に適応した命名になっているため、分かりやすいですね！
 
 (https://supabase.com/docs/guides/auth/auth-helpers/nextjs#creating-a-supabase-client)
 
@@ -126,6 +128,7 @@ create policy "anyone can select posts" ON "public"."posts"
 as permissive for select
 to public
 using (true);
+
 ```
 
 #### データを posts テーブルに挿入
@@ -145,7 +148,7 @@ values
 
 ### 1. サーバーコンポーネント上でデータ取得する
 
-まず、Supabase の`posts`テーブルからデータを取得し`app/pages.tsx` で表示します。
+まず、Supabase の`posts`テーブルからデータを取得し`app/page.tsx` で表示します。
 
 今回はサーバーコンポーネント側でデータ取得を行うので`createServerComponentClient` 関数を用いてクライアントを作成します。
 
@@ -169,9 +172,10 @@ export default async function Home() {
 ### 2. Github OAuth でユーザー認証できるようにする
 
 今回は、Github によるソーシャルログインを実装します。
-::: details Github 認証の設定
-実際に Github 認証 を行うためには アプリケーションの認証情報を Github と Supabase に追加する必要があります。公式に手順が記載されていますので参考にして下さい。
+::: details Github OAuth の設定
+実際に Github OAuth を有効にするには、GitHub OAuth アプリケーションをセットアップして、アプリケーションの認証情報を Supabase ダッシュボードに追加する必要があります。下記サイトが参考になるかと思います。
 (https://supabase.com/docs/guides/auth/social-login/auth-github)
+(https://egghead.io/lessons/supabase-create-an-oauth-app-with-github)
 :::
 ここでは`AuthButton.tsx`を作成して、ログインボタンとログアウトボタンを作っています。
 
@@ -338,7 +342,24 @@ export default async function Home() {
 
 https://nextjs.org/docs/app/building-your-application/routing/middleware
 
-## 5. Session 有無に応じて UI を動的レンダリングする
+## 5. 認証されたユーザーのみがアクセスできるようにする
+
+現在、Supabase の posts テーブルには誰でもアクセスできるようになっているので、
+このタイミングでアクセス制限をかけておきます。
+
+Supabase の RLS ポリシーを`public`から`authenticated`に変更するだけです。
+
+#### RLS ポリシーの変更
+
+```diff sql
+create policy "authenticated user can select posts" ON "public"."posts"
+as permissive for select
+- to public
++ to authenticated
+using (true);
+```
+
+## 6. Session 有無に応じて UI を動的レンダリングする
 
 最後に、ログイン・ログアウト両方のボタンが表示されているので、Session に応じて切り替えられるようにします。
 
@@ -347,15 +368,17 @@ https://nextjs.org/docs/app/building-your-application/routing/middleware
 まず、**セッションを非同期で取得する用のサーバーコンポーネント**を作成します。
 非同期処理を実行する場合、関数の先頭に`async`をつけると**非同期サーバーコンポーネント**として機能します。コンポーネント名はとりあえず分かりやすく `AuthButtonServer.tsx` という命名にしておきます。
 
-#### サーバーコンポーネント側
+実装は以下のようになります。
 
-- 非同期処理を使用するので、`async` を付ける
-- `getSession` でセッション情報をして、クライアントコンポーネントへ渡す。
+#### サーバーコンポーネント側(AuthButtonServer.tsx)
+
+- 非同期処理を使用するので、`async`を付ける
+- `getSession`でセッション情報を取得し、クライアントコンポーネント(AuthButton.tsx)へ Props として渡す
 
 ```diff ts:AuthButtonServer.tsx
 + import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 + import { cookies } from "next/headers";
-+ import AuthButton from "./auth-button-client";
++ import AuthButton from "./AuthButton";
 +
 + export default async function AuthButtonServer() {
 +  const supabase = createServerComponentClient({ cookies });
@@ -368,11 +391,10 @@ https://nextjs.org/docs/app/building-your-application/routing/middleware
 }
 ```
 
-#### クライアントコンポーネント側
+#### クライアントコンポーネント側(AuthButton.tsx)
 
-- ログイン・ログアウトボタンどちらかを表示するコンポーネント
-- Props で `session` を受け取る
-- session の有無に応じて､ボタンを切り替える
+- 親から渡ってきた Props で `session`を受け取る
+- session の有無に応じて､ログイン・ログアウトボタンの表示を切り替える
 
 ```diff tsx:AuthButton.tsx
 "use client";
@@ -420,10 +442,14 @@ https://nextjs.org/docs/app/building-your-application/rendering
 
 ## おわりに
 
-最後まで読んでいただきありがとうございます。
-Supabase は今非常に勢いのある
+今回 Supabase の Auth Helpers を AppRouter の環境で使って、簡単な認証機能を実装しました。Supabase を使えばデータベースや認証機能を簡単に実装できるので、非常に便利なツールだなど思いました。しかし、筆者自身、認証周りについてまだまだ理解が浅く Cookie や Session が何をしているか曖昧な部分はあります。今後の課題として認証周りは学習します！
+
+また、Supabase は今非常に勢いのあるサービスなので、いろんなアプリを作りながら筆者自身ももっと知見を深めていきたいなと思っています。もし興味のある方はぜひ触ってみて下さい。
+
+ここまで読んで頂きありがとうございました！！
 
 ## 参考サイト
 
 https://supabase.com/docs/guides/auth/auth-helpers/nextjs
 https://egghead.io/courses/build-a-twitter-clone-with-the-next-js-app-router-and-supabase-19bebadb
+https://nextjs.org/
