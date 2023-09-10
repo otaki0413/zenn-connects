@@ -46,10 +46,10 @@ https://supabase.com/docs/guides/auth/auth-helpers
 
 https://supabase.com/docs/guides/auth/auth-helpers/nextjs
 
-### Supabase クライアント を作成するには？
+### Supabase クライアント を作成する
 
 実際にアプリ側から Supabase に接続するにはどうすればよいのでしょうか？
-**Next.js Auth Helpers** は、Supabase のクライアントにアクセスする 5 つの関数を提供しています。
+App Router の場合、**Next.js Auth Helpers** は、Supabase のクライアントにアクセスする 5 つの関数を提供しています。
 
 1. `createClientComponentClient`
    - クライアントコンポーネント側から使用するメソッド
