@@ -239,7 +239,7 @@ export default async function Home() {
 
 ### 3. Route Handlers の作成
 
-サインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトするので、Router Handler を作成する必要があります。
+サインインに成功すると、`http://localhost:3000/auth/callback` にリダイレクトするので、**Router Handler** を作成する必要があります。
 
 今回は、app ディレクトリ配下に`auth/callback/route.ts`を作成します。
 このルートで実行しているのは、**Code Exchange(コード交換)** です。
@@ -273,6 +273,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.redirect(requestUrl.origin);
 }
 ```
+
+Github OAuth に成功すると、Supabase の[authentication] > [Users]のところに認証されたユーザーの情報が表示されるかと思います。
+![](/images/github-oauth-user.png)
 
 ここまでの内容をまとめると、GitHub 認証を通じてセッションが確立され、ユーザの認証とアプリケーションと Supabase の間でセキュアに通信が行えるになりました。セッション情報には認証情報が管理されるため、今後 Supabase へアクセスする際にはセッション情報が使用されます。
 
@@ -344,7 +347,7 @@ https://nextjs.org/docs/app/building-your-application/routing/middleware
 
 ## 5. 認証されたユーザーのみがアクセスできるようにする
 
-現在、Supabase の posts テーブルには誰でもアクセスできるようになっているので、
+現在、Supabase の `posts` テーブルには誰でもアクセスできるようになっているので、
 このタイミングでアクセス制限をかけておきます。
 
 Supabase の RLS ポリシーを`public`から`authenticated`に変更するだけです。
