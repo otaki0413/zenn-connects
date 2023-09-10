@@ -293,7 +293,6 @@ https://nextjs.org/docs/app/building-your-application/routing/route-handlers#coo
 **Cookie の有効期限が切れると、ユーザがページを更新するときに Cookie が削除されてログアウト状態になる**
 
 これはサーバーコンポーネントが、Cookie を読みとり可能だが、更新する方法は持っていないためです。
-本来であれば
 
 > Next.js Server Components allow you to read a cookie but not write back to it. Middleware on the other hand allow you to both read and write to cookies.
 
@@ -445,7 +444,7 @@ https://nextjs.org/docs/app/building-your-application/rendering
 
 ## おわりに
 
-今回 Supabase の Auth Helpers を AppRouter の環境で使って、簡単な認証機能を実装しました。Supabase を使えばデータベースや認証機能を簡単に実装できるので、非常に便利なツールだなど思いました。しかし、筆者自身、認証周りについてまだまだ理解が浅く Cookie や Session が何をしているか曖昧な部分はあります。今後の課題として認証周りは学習します！
+今回 Supabase の Auth Helpers を AppRouter の環境で使って、簡単な認証機能を実装しました。Supabase を使えばデータベースや認証機能を簡単に実装できるので、非常に便利なツールだなど思いました。しかし、筆者自身、認証周りについてまだまだ理解が浅く Cookie や Session が何をしているか曖昧な部分はあります。そのため、今後の課題として認証周りをもっと勉強したいと思います！
 
 また、Supabase は今非常に勢いのあるサービスなので、いろんなアプリを作りながら筆者自身ももっと知見を深めていきたいなと思っています。もし興味のある方はぜひ触ってみて下さい。
 
