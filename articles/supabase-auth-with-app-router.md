@@ -3,7 +3,7 @@ title: "【AppRouter】Supabase のAuth Helpersを触ってみる"
 emoji: "⚡"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["supabase", "nextjs"]
-published: false
+published: true
 ---
 
 ## はじめに
@@ -146,6 +146,9 @@ values
 
 ## 実装
 
+下記リポジトリが実装したコードになります。
+https://github.com/otaki0413/next-app-with-auth-helpers
+
 ### 1. サーバーコンポーネント上でデータ取得する
 
 まず、Supabase の`posts`テーブルからデータを取得し`app/page.tsx` で表示します。
@@ -287,13 +290,14 @@ https://nextjs.org/docs/app/building-your-application/routing/route-handlers#coo
 
 #### 問題点
 
-**サーバー上で Supabase クライアントを使用する場合、Cookie の有効期限が切れると、更新時に Cookie が削除されてログアウト状態になる**
+**Cookie の有効期限が切れると、ユーザがページを更新するときに Cookie が削除されてログアウト状態になる**
 
-これはサーバーコンポーネントが、Cookie を読取可能だが、書き戻すことはできないためです。
+これはサーバーコンポーネントが、Cookie を読みとり可能だが、更新する方法は持っていないためです。
+本来であれば
 
 > Next.js Server Components allow you to read a cookie but not write back to it. Middleware on the other hand allow you to both read and write to cookies.
 
-`serverComponentClient.ts`の実装を見ても、サーバーコンポーネント側からだと`cookies`を設定できない旨がコメントで記載されています。
+`serverComponentClient.ts`の実装を見ても、現状サーバーコンポーネント側からだと`cookies`を設定できない旨がコメントで記載されています。
 https://github.com/supabase/auth-helpers/blob/main/packages/nextjs/src/serverComponentClient.ts
 
 #### 解決策
@@ -322,7 +326,7 @@ export async function middleware(req: NextRequest) {
 }
 ```
 
-この middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネント(app/page.tsx)の `cookies` 関数には新しいセッションを含む更新後の Cookie が含まれることが保証されるのです。
+この middleware 関数は、サーバーコンポーネントのルートをロードするレスポンスを返します。これにより下記サーバーコンポーネント(app/page.tsx)の `cookies` 関数には新しいセッションを含む更新後の Cookie が含まれることが保証されるのです。つまり、ユーザーがログアウトするのは、ログアウトボタン押下時のみです。
 
 ```ts: app/page.tsx
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -381,7 +385,7 @@ using (true);
 ```diff ts:AuthButtonServer.tsx
 + import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 + import { cookies } from "next/headers";
-+ import AuthButton from "./AuthButton";
++ import { AuthButton }from "./AuthButton";
 +
 + export default async function AuthButtonServer() {
 +  const supabase = createServerComponentClient({ cookies });
@@ -408,11 +412,7 @@ import {
   createClientComponentClient,
 } from "@supabase/auth-helpers-nextjs";
 
-export default function AuthButtonClient({
-+  session,
-+ }: {
-+  session: Session | null;
-  }) {
++ export const AuthButton = ({ session }: { session: Session | null }) => {
   const supabase = createClientComponentClient();
   const router = useRouter();
 
