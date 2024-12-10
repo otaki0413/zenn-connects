@@ -24,7 +24,7 @@ https://adventar.org/calendars/10341
 
 https://qiita.com/TakahikoKawasaki/items/e37caf50776e00e733be
 
-**OAuth**（**Open Authorization**）とは、**アプリやサービスがユーザーデータや機能に安全にアクセスできるようにする仕様**のことです。
+**OAuth**（**Open Authorization**）とは、**アプリやサービスがユーザーデータや機能に安全にアクセスできるようにする仕組み**のことです。
 
 例えば、以下のような場面で利用されています。
 
