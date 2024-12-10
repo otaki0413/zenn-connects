@@ -3,7 +3,7 @@ title: "OAuthとGitHubログインの仕組みをざっくり理解する"
 emoji: "🛡️"
 type: "tech" # tech: 技術記事 / idea: アイデア
 topics: ["oauth", "openid"]
-published: false
+published: true
 ---
 
 これは「Happiness Chain Advent Calendar 2024」の 11 日目の記事です。
