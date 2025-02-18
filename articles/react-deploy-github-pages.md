@@ -164,7 +164,7 @@ GitHub Actions の実行が完了すると、GitHub Pages にデプロイされ�
 
 ![](/images/react-deploy-github-pages/2.png)
 
-私の場合、下記のように`react-todo`ブランチを追加しました。
+下記のように`react-todo`ブランチを追加しました。
 
 ![](/images/react-deploy-github-pages/3.png)
 
@@ -174,7 +174,7 @@ GitHub Actions の実行が完了すると、GitHub Pages にデプロイされ�
 
 本記事では、Vite 製 React アプリを GitHub Pages にデプロイする手順を紹介しました。
 
-デプロイ後、変更を加えた場合は `react-todo` ブランチにプッシュすれば、GitHub Actions により自動的に再デプロイされるようになっています。
+デプロイ後、変更を加えたい場合は `react-todo` ブランチにプッシュすれば、GitHub Actions により自動的に再デプロイされるようになっています。
 
 最後に私がデプロイしたアプリを共有しておきます！🚀
 
