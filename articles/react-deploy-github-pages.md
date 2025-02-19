@@ -22,7 +22,7 @@ https://ja.vite.dev/guide/#%E6%9C%80%E5%88%9D%E3%81%AE-vite-%E3%83%95%E3%82%9A%E
 1. React アプリのローカルでのビルド手順の確認
 2. `vite.config.js` の設定
 3. GitHub Actions のワークフロー作成
-4. GitHub Pages にデプロイ確認
+4. GitHub Pages にデプロイ
 
 https://ja.vite.dev/guide/static-deploy.html#github-pages
 
@@ -79,7 +79,7 @@ export default defineConfig({
 
 ## 3. GitHub Actions のワークフロー作成
 
-プロジェクト直下に`.github`フォルダを作成して、`deploy.yml`を配置します。
+プロジェクト直下に`.github/workflows`ディレクトリを作成して、`deploy.yml`を配置します。
 
 ```bash:terminal
 .github/
@@ -145,7 +145,7 @@ jobs:
         uses: actions/deploy-pages@v4
 ```
 
-## 4. デプロイ
+## 4. GitHub Pages にデプロイ
 
 Github Actions のワークフローが作成できたので、対象ブランチにプッシュしましょう。
 GitHub Actions の実行が完了すると、GitHub Pages にデプロイされます。
