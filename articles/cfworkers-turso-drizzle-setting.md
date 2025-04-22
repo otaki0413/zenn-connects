@@ -1,5 +1,5 @@
 ---
-title: "Cloudflare Workers × Drizzle × Turso で開発環境と本番環境を分けたDB設計をしてみる"
+title: "Cloudflare Workers × Drizzle × Turso で開発環境と本番環境に分けてDBを管理する"
 emoji: "🤡"
 type: "tech"
 topics: ["reactrouter", "cloudflareworkers", "drizzle", "turso"]
