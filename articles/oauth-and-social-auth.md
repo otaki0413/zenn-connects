@@ -6,9 +6,6 @@ topics: ["oauth", "openid"]
 published: true
 ---
 
-これは「Happiness Chain Advent Calendar 2024」の 11 日目の記事です。
-https://adventar.org/calendars/10341
-
 ## はじめに
 
 現在、Django を使った Twitter クローンアプリを作成しており、その中で GitHub ログイン機能を実装する機会がありました。実装自体はできたものの、「**OAuth**」 と呼ばれる仕組みが何をしているのかよくわかりませんでした。そこで本記事では、OAuth の基本的な仕組みと GitHub ログインがどのように OAuth を活用しているかを紹介しようと思います。
