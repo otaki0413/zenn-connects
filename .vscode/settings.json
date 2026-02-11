@@ -1,5 +1,12 @@
 {
     "cSpell.words": [
+        "cloudflareworkers",
+        "githubactions",
         "zenn"
-    ]
+    ],
+    "[markdown]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
 }
