@@ -1,5 +1,5 @@
 ---
-title: "Worker を別々の環境に分けてデプロイする（Workers Builds 編）"
+title: "Worker を複数環境に分けてデプロイする（Workers Builds 編）"
 emoji: "🔥"
 type: "tech"
 topics: ["cloudflareworkers", "cloudflarepages"]
@@ -29,25 +29,26 @@ publication_name: "frontendflat"
 
 ### Pages の場合
 
-Pages では、1 つのプロジェクト内部で環境（プロダクション / プレビュー）を分けて管理できます。環境変数や KV・D1 などのバインディングも個別に設定できます。
+Pages では、1 つのプロジェクト内部で環境（**プロダクション** / **プレビュー**）を分けて管理できます。環境変数や KV・D1 などのバインディングも個別に設定できます。
 
 ![image](/images/workers-build-deploy/2.png)
 _Pages プロジェクトの設定画面にて環境を選択できるイメージ_
 
 ### Workers の場合
 
-一方、Workers の場合、1 つの Worker 内でプロダクションとプレビューの環境を分けて管理する仕組みがありません。そのため、環境をわけるには別々の Worker としてデプロイする必要があります。その選択肢として 2 つほど考えられそうです。
+一方、Workers の場合、1 つの Worker 内でプロダクションとプレビューなど環境を分けて管理する仕組みがありません。そのため、環境をわけるには別々の Worker としてデプロイする必要があります。その選択肢として 2 つほど考えられそうです。
 
 - **Workers Builds**
 - **Github Actions + Wrangler**
 
-本記事では Workers Builds の方を取り扱います。
+本記事では シンプルな Workers Builds の方を取り扱います。
 
 ## Workers Builds とは？
 
 https://developers.cloudflare.com/workers/ci-cd/builds/
 
-Workers Builds とは、GitHub や GitLab 上のリポジトリ と Workers を連携できる CI/CD の機能です。ブランチへの push をトリガーにしてビルド → デプロイまでを自動化できるので、[Github Actions での CI/CD パイプライン](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)を組まずともシンプルなセットアップで導入できるのが良いポイントです。
+Workers Builds とは、GitHub など のリポジトリ と Workers を連携できる CI/CD の機能です。
+ブランチへの push をトリガーにしてビルド → デプロイまでを自動化できるので、[Github Actions での CI/CD パイプライン](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)を組まずともシンプルなセットアップで導入できるのが良いポイントです。
 
 また下記は GitHub の例ですが、PR 上にビルド結果が表示され、[プレビュー URL](https://developers.cloudflare.com/workers/configuration/previews/) も出すことができるので、レビュー時の動作確認などに役立ちます。
 
@@ -58,11 +59,11 @@ _PR 上にビルド結果が表示されるイメージ_
 
 今回は Workers Builds を使う前提で、1 つのリポジトリから下記 3 つの Worker に分離してデプロイできるようにします。
 
-| 環境       | 用途のイメージ               | Worker 名                              |
-| ---------- | ---------------------------- | -------------------------------------- |
-| develop    | 開発環境                     | **`workers-builds-sample`**            |
-| staging    | 動作確認・QA を行う環境      | **`workers-builds-sample-staging`**    |
-| production | 実際のユーザーが使う本番環境 | **`workers-builds-sample-production`** |
+| 環境       | 用途のイメージ               | Worker 名                       |
+| ---------- | ---------------------------- | ------------------------------- |
+| develop    | 開発環境                     | **`workers-builds`**            |
+| staging    | 動作確認・QA を行う環境      | **`workers-builds-staging`**    |
+| production | 実際のユーザーが使う本番環境 | **`workers-builds-production`** |
 
 検証用のリポジトリは下記になります。
 
@@ -70,11 +71,11 @@ https://github.com/otaki0413/workers-builds-sample
 
 ## `wrangler.jsonc` の設定
 
-各 Worker の環境構成には、Wrangler の設定ファイル（`wrangler.jsonc`）を使用します。Cloudflare のダッシュボード上から設定はいじれるのですが、[公式ドキュメント](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth)では下記のように設定ファイルを **Source of truth**（信頼できる唯一の情報源）として管理することを推奨しています。
+各 Worker の環境構成には、Wrangler の設定ファイル（`wrangler.jsonc`）を使用します。Cloudflare のダッシュボード上からも設定はいじれるのですが、[公式ドキュメント](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth)では設定ファイルを **Source of truth**（信頼できる唯一の情報源）として管理することを推奨しています。
 
 > We recommend treating your Wrangler configuration file as the source of truth for your Worker configuration, and to avoid making changes to your Worker via the Cloudflare dashboard if you are using Wrangler.
 
-以降の説明で、一部ダッシュボード設定を行う箇所はありますが、運用フローとしても`wrangler.jsonc` や Wrangler CLI 経由で設定を行うのがよいと思われるため、そちらに焦点を当てて説明します。
+以降の説明で、ダッシュボード上での設定を行う箇所は一部ありますが、運用フローとしても`wrangler.jsonc` や Wrangler CLI 経由で設定を行うのがよいと思われるため、そちらに焦点を当てて説明します。
 
 ### 基本的な構造
 
@@ -102,78 +103,136 @@ https://github.com/otaki0413/workers-builds-sample
 }
 ```
 
-### 全体の設定例
+### 設定イメージ
 
-実際に今回の 3 環境構成で設定した例はこちらになります。
+- `vars`や`kv_namespaces`などの継承不可能なキーは、`env.*` ごとに設定している
 
 ```jsonc:wrangler.jsonc
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "workers-builds-sample",
+  "name": "workers-builds",
 
-  // vars は継承不可能なキーのため、env.* ごとに設定が必要
   "vars": {
     "ENVIRONMENT": "development",
     "LOG_LEVEL": "debug"
   },
+  "kv_namespaces": [{ "binding": "development_kv", "id": "<DEVELOP_KV_ID>" }],
 
+  // vars やバインディングなどの継承不可能なキーは、env.* ごとに設定が必要
   "env": {
     "staging": {
-      // name を省略すると "workers-builds-sample-staging" が自動で付与される
       "vars": {
         "ENVIRONMENT": "staging",
         "LOG_LEVEL": "debug"
       },
-      "kv_namespaces": [{ "binding": "MY_KV", "id": "<STAGING_KV_ID>" }],
+      "kv_namespaces": [{ "binding": "staging_kv", "id": "<STAGING_KV_ID>" }],
     },
     "production": {
-      "name": "workers-builds-sample-production",
       "vars": {
         "ENVIRONMENT": "production",
         "LOG_LEVEL": "error"
       },
-      "kv_namespaces": [{ "binding": "MY_KV", "id": "<PRODUCTION_KV_ID>" }],
+      "kv_namespaces": [{ "binding": "production_kv", "id": "<PRODUCTION_KV_ID>" }],
     }
   }
 }
 ```
 
-### シークレットの登録
+## Workers を手動デプロイする
 
-上記の wrangler.jsonc の `vars` はコード管理されますが、API キーなどの機密情報はコード管理できません。
-API キーなどの機密情報は `wrangler secret put` で環境ごとに登録します。
+Workers Builds で Git リポジトリと連携するには、事前に Worker が Cloudflare 上に存在している必要があります。そのため、[`wrangler deploy`](https://developers.cloudflare.com/workers/wrangler/commands/#deploy) で 3 環境分を手動デプロイしておきます。
+
+`--env` で環境を指定すると、`wrangler.jsonc` の `env.*` に対応した Worker としてデプロイされます。
 
 ```bash
-wrangler secret put SECRET_KEY
-wrangler secret put SECRET_KEY --env staging
-wrangler secret put SECRET_KEY --env production
+wrangler deploy                    # デフォルト（develop）環境
+wrangler deploy --env staging      # staging 環境
+wrangler deploy --env production   # production 環境
 ```
 
-ダッシュボードの「Settings > Variables and Secrets」からも確認・追加できます。
+下記、Staging 環境向けの手動デプロイログですが、`wrangler.jsonc` に設定した `vars` や KV バインディングが正しく反映されていることが確認できます。
+
+```bash
+> pnpm wrangler deploy --env staging
+
+ ⛅️ wrangler 4.68.1 (update available 4.69.0)
+─────────────────────────────────────────────
+Total Upload: 7.46 KiB / gzip: 2.12 KiB
+Worker Startup Time: 4 ms
+Your Worker has access to the following bindings:
+Binding                                                    Resource
+env.staging_kv (1a8a4c5339bb458b8411a6638ba86d01)      KV Namespace
+env.ENVIRONMENT ("staging")      Environment Variable
+env.LOG_LEVEL ("debug")          Environment Variable
+
+Uploaded workers-builds-staging (6.18 sec)
+Deployed workers-builds-staging triggers (3.78 sec)
+  https://workers-builds-staging.otaki0413-it.workers.dev
+```
+
+## シークレットの登録
+
+`wrangler.jsonc` で指定した`vars` は公開しても問題ない値でしたが、API キーや DB 接続情報のような機密情報は [`wrangler secret put`](https://developers.cloudflare.com/workers/wrangler/commands/#secret-put) で Worker ごとに登録する必要があります。
+
+デプロイしたときと同様に、`--env` で環境を指定してシークレットを登録します。
+
+```bash
+wrangler secret put <SECRET>                    # デフォルト環境
+wrangler secret put <SECRET> --env staging      # staging 環境
+wrangler secret put <SECRET> --env production   # production 環境
+```
+
+もし複数のシークレットをまとめて登録したい場合は [`wrangler secret bulk`](https://developers.cloudflare.com/workers/wrangler/commands/#secret-bulk) が便利です。
+JSON または `.env` 形式のファイルを渡すと、一括登録できます。
+
+```bash
+wrangler secret bulk secrets.json
+wrangler secret bulk secrets.json --env staging
+wrangler secret bulk secrets.json --env production
+```
 
 ## Workers Builds のダッシュボード設定
 
-### ブランチ → デプロイ環境のマッピング
+### ブランチとデプロイ設定
 
-Cloudflare ダッシュボードで対象の Worker を開き、**Settings > Builds** からリポジトリを接続します。接続後、ブランチとデプロイ先の環境を対応づけます。
+Cloudflare ダッシュボードで、手動デプロイした各 Worker を開き、**Settings > Builds**からリポジトリを接続します。そして、ブランチとデプロイコマンドを設定します。
 
-| ブランチ     | デプロイコマンド例                     |
-| ------------ | -------------------------------------- |
-| `main`       | `npx wrangler deploy`                  |
-| `staging`    | `npx wrangler deploy --env staging`    |
-| `production` | `npx wrangler deploy --env production` |
+この設定によりブランチへの push をトリガーに対応 Worker へ自動デプロイが行われるようになります。
 
-ビルドコマンド（例: `npm run build`）とデプロイコマンドは管理画面から設定できます。これにより、ブランチへの push をトリガーに対応する Worker へ自動デプロイされるようになります。
+![image](/images/workers-build-deploy/3.png)
+_Workers Builds の設定画面にてブランチとデプロイ設定を行うイメージ_
+
+### Worker 別の Workers Builds の設定
+
+| Worker 名                   | ブランチ  | 非本番ブランチのビルド | デプロイコマンド                           | プレビューデプロイコマンド         |
+| --------------------------- | --------- | ---------------------- | ------------------------------------------ | ---------------------------------- |
+| `workers-builds`            | `develop` | ビルドあり             | **`npx wrangler deploy`**                  | **`npx wrangler versions upload`** |
+| `workers-builds-staging`    | `staging` | ビルドなし             | **`npx wrangler deploy --env staging`**    | -                                  |
+| `workers-builds-production` | `main`    | ビルドなし             | **`npx wrangler deploy --env production`** | -                                  |
+
+Workers Builds のデプロイコマンドはデフォルトで `npx wrangler deploy` ですが、1 つのリポジトリから複数の Worker へデプロイするため、`--env` で環境を明示する必要があります。
+指定しないと、3 つの Worker がすべて `wrangler.jsonc` のトップレベル設定（develop
+環境）へ上書きデプロイされてしまうためこの考慮が必要になります。
+
+![image](/images/workers-build-deploy/4.png)
+_Workers Builds ビルド設定_
+
+:::details 非本番ブランチのビルドに関して
+
+非本番ブランチのビルドを有効にすると、その Worker 上では、**非本番ブランチへの push をトリガーに**プレビューデプロイコマンドが実行されます。
+デフォルトは `npx wrangler versions upload`で、バージョンのみがアップロードされ本番トラフィックには影響しない [PreviewURL](https://developers.cloudflare.com/workers/configuration/previews/) が発行されます。
+
+https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/
+:::
 
 ## Workers Builds の課題
 
 Workers Builds はシンプルに使える反面、ブランチ制御の柔軟性に限界があります。
 
-**ブランチ制御が粗い**
+**ブランチ制御が柔軟にできないかも**
 
-設定できるのは「プロダクションブランチ」と「プレビューブランチ（それ以外すべて）」の 2 種類のみです。そのため、「`staging` ブランチのみ staging 環境へデプロイし、`main` ブランチはビルドをスキップしたい」といった細かい制御はできません。結果として、意図しないブランチでもビルドが走ってしまうことがあります。
-
-このような細かいブランチ制御が必要な場合は、GitHub Actions + Wrangler の構成が有効です。次回記事でそちらも整理する予定です。
+設定できるのは「本番ブランチ」と「非本番ブランチ」の 2 種類のみです。
+そのため、「`staging` ブランチのみ staging 環境へデプロイし、`main` ブランチはビルドをスキップしたい」といった細かい制御はできません。結果として、意図しないブランチでもビルドが走ってしまうことを避けられません。
 
 ## おわりに
 
@@ -188,6 +247,8 @@ Workers Builds を使った環境分離のポイントをまとめます。
 
 ## 参考
 
-[https://developers.cloudflare.com/workers/wrangler/environments/](https://developers.cloudflare.com/workers/wrangler/environments/)
+https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/
 
-[https://developers.cloudflare.com/workers/wrangler/configuration/](https://developers.cloudflare.com/workers/wrangler/configuration/)
+https://developers.cloudflare.com/workers/wrangler/environments/
+
+https://developers.cloudflare.com/workers/wrangler/configuration/
