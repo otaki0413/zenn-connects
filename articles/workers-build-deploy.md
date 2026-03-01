@@ -82,14 +82,14 @@ https://github.com/otaki0413/workers-builds-sample
 
 - **トップレベルに共通設定を書く**
 - **`env.*` で環境ごとの上書き設定を書く**
-  - [継承可能なキー](https://developers.cloudflare.com/workers/wrangler/configuration/#inheritable-keys)はトップレベルの値が各環境に引き継がれ、`env.*` で上書きできます（例: `name`、`compatibility_date`、`main` など）
-  - [継承不可能なキー](https://developers.cloudflare.com/workers/wrangler/configuration/#non-inheritable-keys)はトップレベルの値は継承されないため、各環境で個別設定が必要です（例: `vars`、`kv_namespaces`、`d1_databases` などのバインディング類）
+  - [継承可能なキー](https://developers.cloudflare.com/workers/wrangler/configuration/#inheritable-keys)はトップレベルの値が各環境に引き継がれ、`env.*` で上書き可能（例: `name`、`compatibility_date`、`main` など）
+  - [継承不可能なキー](https://developers.cloudflare.com/workers/wrangler/configuration/#non-inheritable-keys)はトップレベルの値は継承されないため、各環境で個別設定が必要（例: `vars`、`kv_namespaces`、`d1_databases` などのバインディング類）
 
 ```jsonc:wrangler.jsonc
 {
   // トップレベルの共通設定
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "workers-builds-sample",
+  "name": "workers-builds",
 
   "env": {
     "staging": {
@@ -104,12 +104,11 @@ https://github.com/otaki0413/workers-builds-sample
 
 #### 設定イメージ
 
-今回の検証用リポジトリの `wrangler.jsonc` の設定イメージは以下のとおりです。
+今回の検証用リポジトリの `wrangler.jsonc` の主な設定イメージは以下のとおりです。
 
-- `vars` や `kv_namespaces` は継承不可能なキーのため `env.*` ごとに設定が必要
-- 各環境の `name` は省略し、Worker 名は Wrangler が自動解決する
-  - `--env staging` → `workers-builds-staging`
-  - `--env production` → `workers-builds-production`
+- **name**: Worker 名。`env.*` で省略すると `<name>-<env>` 形式になる
+- **vars**: 環境ごとに `ENVIRONMENT` や `LOG_LEVEL` を切り替え
+- **kv_namespaces**: binding 名は統一し、`id` で接続先を分離
 
 ```jsonc:wrangler.jsonc
 {
