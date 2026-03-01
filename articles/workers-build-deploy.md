@@ -2,7 +2,7 @@
 title: "Worker を複数環境に分けてデプロイする（Workers Builds 編）"
 emoji: "🔥"
 type: "tech"
-topics: ["cloudflareworkers"]
+topics: ["cloudflareworkers", "cloudflarepages"]
 published: true
 publication_name: "frontendflat"
 ---
