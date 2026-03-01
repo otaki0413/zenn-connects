@@ -107,34 +107,33 @@ https://github.com/otaki0413/workers-builds-sample
 今回の検証用リポジトリの `wrangler.jsonc` の設定イメージは以下のとおりです。
 
 - `vars` や `kv_namespaces` は継承不可能なキーのため `env.*` ごとに設定が必要
-- KV の `binding` 名は全環境で統一し、`id` で接続先を分けている
-- `name`（Worker 名）は継承可能なキーのため `env.*` でオーバーライドして環境別の Worker 名を指定する
+- 各環境の `name` は省略し、Worker 名は Wrangler が自動解決する
+  - `--env staging` → `workers-builds-staging`
+  - `--env production` → `workers-builds-production`
 
 ```jsonc:wrangler.jsonc
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // デフォルト環境（develop）の Worker 名
   "name": "workers-builds",
 
   "vars": {
     "ENVIRONMENT": "development",
     "LOG_LEVEL": "debug"
   },
+  // binding 名は全環境で統一し、id で接続先を分ける
   "kv_namespaces": [{ "binding": "MY_KV", "id": "<DEVELOP_KV_ID>" }],
 
-  // vars やバインディングなどの継承不可能なキーは、env.* ごとに設定が必要
   "env": {
+    // Worker 名: workers-builds-staging
     "staging": {
-      // 継承可能なキーは env.* でオーバーライドできる
-      "name": "workers-builds-staging",
       "vars": {
         "ENVIRONMENT": "staging",
         "LOG_LEVEL": "debug"
       },
       "kv_namespaces": [{ "binding": "MY_KV", "id": "<STAGING_KV_ID>" }]
     },
+    // Worker 名: workers-builds-production
     "production": {
-      "name": "workers-builds-production",
       "vars": {
         "ENVIRONMENT": "production",
         "LOG_LEVEL": "error"
@@ -210,7 +209,7 @@ wrangler secret bulk secrets.json --env production
 そして、ブランチとデプロイコマンドを設定します。この設定で**ブランチへの push をトリガーに対応 Worker へ自動デプロイが行われる**ようになります。
 
 :::message alert
-リポジトリを接続する際、ダッシュボード上の Worker 名と `wrangler.jsonc` に記載された `name`（環境ごとのオーバーライド含む）が一致している必要があります。不一致の場合はビルドが失敗します。詳細は[公式ドキュメント](https://developers.cloudflare.com/workers/ci-cd/builds/troubleshoot/#workers-name-requirement)を参照してください。
+リポジトリを接続する際、ダッシュボード上の Worker 名と Wrangler が解決する Worker 名が一致している必要があります。`env.*` で `name` を省略した場合、Worker 名は `<name>-<env>` 形式（例: `workers-builds-staging`）になります。不一致の場合はビルドが失敗します。詳細は[公式ドキュメント](https://developers.cloudflare.com/workers/ci-cd/builds/troubleshoot/#workers-name-requirement)を参照してください。
 :::
 
 ![image](/images/workers-build-deploy/3.png)
